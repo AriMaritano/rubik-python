@@ -2,9 +2,11 @@ class Face:
     def __init__(self, color, grid=[]):
         self.color = color
         self.grid = grid or self.create_grid()
+
     def create_grid(self):
         c = self.color[0] # first letter of color
         return [f'{c}{i}' for i in range(1, 10)]
+
     @property
     def cols(self):
         return [
@@ -20,7 +22,7 @@ class Face:
             [self.grid[6], self.grid[7], self.grid[8]],
         ]
 
-    def rotate_left(self, return_=False, n=1):
+    def rotate_left(self, return_copy=False, n=1):
         grid = self.grid
         for _ in range(n):
             new_grid = [
@@ -29,11 +31,11 @@ class Face:
                 grid[0], grid[3], grid[6],
             ]
             grid = new_grid
-        if return_:
+        if return_copy:
             return new_grid
         self.grid = new_grid
 
-    def rotate_right(self, return_=False, n=1):
+    def rotate_right(self, return_copy=False, n=1):
         grid = self.grid
         for _ in range(n):
             new_grid = [
@@ -42,8 +44,9 @@ class Face:
                 grid[8], grid[5], grid[2],
             ]
             grid = new_grid
-        if return_:
+        if return_copy:
             return new_grid
+        self.grid = new_grid
 
     def __repr__(self):
         return f"{self.color} face"
@@ -119,28 +122,119 @@ class Cube:
         ]
     def __repr__(self):
         repr = ''
-        for row in self.top.rows:
+        for row in self.vertical_grid[1].rows:
             for square in row:
                 repr += f' {square} '
             repr += '\n'
         repr += '\n'
         for i in range(3):
-            for face in self.faces:
+            for face in self.horizontal_grid:
                 for square in face.rows[i]:
                     repr += f' {square} '
                 repr += '   '
             repr += '\n'
         repr += '\n'
-        for row in self.bottom.rows:
+        for row in self.vertical_grid[-1].rows:
             for square in row:
                 repr += f' {square} '
             repr += '\n'
         return repr
 
+    def shift_row_right(self, row_index, row=None):
+        source_orientation = 'left'
+        if row_index == 0:
+            self.top.rotate_left()
+        elif row_index == 2:
+            self.bottom.rotate_right()
+        new_row = None
+        for face in self.horizontal_grid: 
+            prev_row = face.rows[row_index]
+            if not new_row:
+                new_row = getattr(face, source_orientation).rows[row_index]
+            for i, square in enumerate(new_row):
+                face.grid[i + 3 * row_index] = square	
+            new_row = prev_row
+    def shift_row_left(self, row_index, row=None):
+        source_orientation = 'right'
+        if row_index == 0:
+            self.top.rotate_right()
+        elif row_index == 2:
+            self.bottom.rotate_left()
+        new_row = None
+        for face in self.horizontal_grid[::-1]: 
+            prev_row = face.rows[row_index]
+            if not new_row:
+                new_row = getattr(face, source_orientation).rows[row_index]
+            for i, square in enumerate(new_row):
+                face.grid[i + 3 * row_index] = square	
+            new_row = prev_row
+
+    def shift_col_up(self, col_index, col=None):
+        source_orientation = 'down'
+        if col_index == 0:
+            self.left.rotate_left()
+        elif col_index == 2:
+            self.right.rotate_right()
+        new_col = None
+        for face in self.vertical_grid: 
+            prev_col = face.cols[col_index]
+            if not new_col:
+                new_col = getattr(face, source_orientation).cols[col_index]
+            for i, square in enumerate(new_col):
+                face.grid[i * 3 + col_index] = square	
+            new_col = prev_col
+        self.horizontal_grid[2] = Face(
+            color = self.vertical_grid[2].color,
+            grid = self.vertical_grid[2].rotate_right(True, 2),
+        )
+
+    def shift_col_down(self, col_index, col=None):
+        source_orientation = 'up'
+        if col_index == 0:
+            self.left.rotate_right()
+        elif col_index == 2:
+            self.right.rotate_left()
+        new_col = None
+        for face in self.vertical_grid[::-1]: 
+            prev_col = face.cols[col_index]
+            if not new_col:
+                new_col = getattr(face, source_orientation).cols[col_index]
+            for i, square in enumerate(new_col):
+                face.grid[i * 3 + col_index] = square	
+            new_col = prev_col
+        self.horizontal_grid[2] = Face(
+            color = self.vertical_grid[2].color,
+            grid = self.vertical_grid[2].rotate_right(True, 2),
+        )
+
+    def show(self):
+        repr = ''
+        for face in self.vertical_grid[1:][::-1]:
+            for row in face.rows:
+                for square in row:
+                    repr += f' {square} '
+                repr += '  '
+                repr += '\n'
+            repr += '\n'
+        for i in range(3):
+            for face in self.horizontal_grid:
+                for square in face.rows[i]:
+                    repr += f' {square} '
+                repr += '   '
+            repr += '\n'
+        print(repr)
+
     def shift(self, index, direction, orientation):
 
         '''
-        if orientation == 'v':
+        idea to have a single method to rotate, just tell it up/down/right/left
+        (direction=1, orientation=1) => right
+        (direction=-1, orientation=1) => left
+        (direction=1, orientation=0) => up
+        (direction=-1, orientation=0) => down
+         
+        
+        if orientation == 0:
             if index == 0:
                 rotate left face direction %4 or sth like that
             if index == 2:
@@ -165,106 +259,5 @@ class Cube:
         self.shift(index, direction, 'h')
     def shift_col(self, index, direction):
         self.shift(index, direction, 'v')
-    def shift_row_right(self, row_index, row=None):
-        orientation = 'left'
-        if row_index == 0:
-            self.top.rotate_left()
-        elif row_index == 2:
-            self.bottom.rotate_right()
-        rows = None
-        for face in self.faces: 
-            prev_row = face.rows[row_index]
-            next_face = getattr(face, orientation)
-            face.rows[row_index] = (
-                rows or next_face.rows[row_index]
-            )
-            
-            rows = prev_row
-    def shift_row_left(self, row_index, row=None):
-        orientation = 'right'
-        if row_index == 0:
-            self.top.rotate_right()
-        elif row_index == 2:
-            self.bottom.rotate_left()
-        rows = None
-        for face in self.faces[::-1]: 
-            prev_row = face.rows[row_index]
-            next_face = getattr(face, orientation)
-            face.rows[row_index] = (
-                rows or next_face.rows[row_index]
-            )
-            
-            rows = prev_row
-
-    def shift_col_up(self, col_index):
-        orientation = 'down'
-        if col_index == 0:
-            self.left.rotate_left()
-        elif col_index == 2:
-            self.right.rotate_right()
-        col = None
-        for face in self.vertical_grid: 
-            prev_col = face.cols[col_index]
-            next_face = getattr(face, orientation)
-            '''
-            change this:
-            instead of having rows and cols in init, we'l
-            have just an array of 9 values.
-            values = ['1','2','3','4','5','6','7','8','9']
-            rows will just be:
-            rows = [
-               [values[0], values[1], values[2]],
-               [values[3], values[4], values[5]],
-               [values[6], values[7], values[8]],
-            ]
-            cols = [
-               [values[0], values[3], values[6]],
-               [values[1], values[4], values[7]],
-               [values[2], values[5], values[8]],
-            ]
-
-            '''
-            face.rows = (
-                col or next_face.cols[col_index]
-            )
-            col = prev_col
-            
-        self.back = Face(
-            self.back.color,
-            self.vertical_grid[2].get_rotate_right(2)
-        )
-
-    def shift_col_down(self):
-        orientation = 'up'
-        if row_index == 0:
-            self.top.rotate_left()
-        elif row_index == 2:
-            self.bottom.rotate_right()
-        rows = None
-        for face in self.faces: 
-            prev_row = face.rows[row_index]
-            next_face = getattr(face, orientation)
-            target_rows = (
-                rows or next_face.rows[row_index]
-            )
-            
-        ...
-    def show(self):
-        repr = ''
-        for face in self.vertical_grid[1:][::-1]:
-            for row in face.rows:
-                for square in row:
-                    repr += f' {square} '
-                repr += '  '
-                repr += '\n'
-            repr += '\n'
-        for i in range(3):
-            for face in self.horizontal_grid:
-                for square in face.rows[i]:
-                    repr += f' {square} '
-                repr += '   '
-            repr += '\n'
-        print(repr)
-
 
 c = Cube()
