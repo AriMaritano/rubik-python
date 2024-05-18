@@ -154,6 +154,10 @@ class Cube:
             for i, square in enumerate(new_row):
                 face.grid[i + 3 * row_index] = square	
             new_row = prev_row
+        self.vertical_grid[2] = Face(
+            color = self.horizontal_grid[2].color,
+            grid = self.horizontal_grid[2].rotate_right(True, 2),
+        )
     def shift_row_left(self, row_index, row=None):
         source_orientation = 'right'
         if row_index == 0:
@@ -168,6 +172,10 @@ class Cube:
             for i, square in enumerate(new_row):
                 face.grid[i + 3 * row_index] = square	
             new_row = prev_row
+        self.vertical_grid[2] = Face(
+            color = self.horizontal_grid[2].color,
+            grid = self.horizontal_grid[2].rotate_right(True, 2),
+        )
 
     def shift_col_up(self, col_index, col=None):
         source_orientation = 'down'
